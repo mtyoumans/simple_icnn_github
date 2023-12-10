@@ -39,7 +39,14 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        # Key Code guaranteeing nonegative Weight Matrix Below
+        # Note that biases of the below associated linear transformations
+        # as well as weights and biases and skip connections are not
+        # constrained
+        with torch.no_grad():
+            for name, param in model.named_parameters():
+                if "prim" in name: 
+                    param.copy_(param.clamp(min=0, max=None))
         if batch % 100 == 0:
             loss, current = loss.item(), batch * len(X)
             print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
@@ -92,6 +99,8 @@ def call_train_loop(epochs, train_loader, test_loader, model, loss_fn, optimizer
         test_loop(test_loader, model, loss_fn)
     print("Done!")
 
+    return model
+
 
 def train_icnn(learning_rate, epochs):
     """Trains models (in particular model of ICNN())
@@ -129,9 +138,16 @@ def train_icnn(learning_rate, epochs):
 
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
 
-    call_train_loop(epochs, train_loader, test_loader, model, loss_fn, optimizer)
+    trained_model = call_train_loop(epochs, train_loader, test_loader, model, loss_fn, optimizer)
 
+    return trained_model
+
+
+def print_trained_models_weights(model):
+    for name, parameters in model.named_parameters():
+        print(f"{name}: {parameters}")
 
 
 if __name__ == "__main__":
-    train_icnn(1e-3, 20)
+    trained_model = train_icnn(1e-3, 5)
+    print_trained_models_weights(trained_model)
